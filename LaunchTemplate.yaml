@@ -1,0 +1,39 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Resources:
+  LaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateData:
+        InstanceType: t3.micro
+        ImageId: ami-0866a3c8686eaeeba  # Replace with a valid AMI ID for your region
+        KeyName: kratos        # Replace with your key name or parameterize if needed
+      LaunchTemplateName: !Sub "${BaseName}-LaunchTemplate"
+
+  AutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      LaunchTemplate:
+        LaunchTemplateId: !Ref LaunchTemplate
+        Version: !GetAtt LaunchTemplate.LatestVersionNumber
+      MinSize: 1
+      MaxSize: 5
+      DesiredCapacity: !Ref DesiredCapacity
+      VPCZoneIdentifier:
+        - <subnet-id>  # Replace with your subnet ID(s) (Public Subnet)
+      Tags:
+        - Key: Name
+          Value: !Sub "${BaseName}-Instance"
+          PropagateAtLaunch: true
+
+Parameters:
+  BaseName:
+    Type: String
+    Description: Base name for the resources.
+    Default: awesome
+
+  DesiredCapacity:
+    Type: Number
+    Description: Desired number of instances in the Auto Scaling Group.
+    Default: 1
+    MinValue: 1
+    MaxValue: 10
