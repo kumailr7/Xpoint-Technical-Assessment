@@ -1,12 +1,76 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Resources:
+  # VPC and Networking Resources
+  MyVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${BaseName}-VPC"
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub "${BaseName}-IGW"
+
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref MyVPC
+      InternetGatewayId: !Ref InternetGateway
+
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MyVPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${BaseName}-PublicSubnet"
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref MyVPC
+      Tags:
+        - Key: Name
+          Value: !Sub "${BaseName}-PublicRT"
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: AttachGateway
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet
+      RouteTableId: !Ref PublicRouteTable
+
+  # Key Pair Resource
+  EC2KeyPair:
+    Type: AWS::EC2::KeyPair
+    Properties:
+      KeyName: !Sub "${BaseName}-key"
+
+  # Original Resources with Updated References
   LaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
     Properties:
       LaunchTemplateData:
         InstanceType: t3.micro
         ImageId: ami-0866a3c8686eaeeba  # Replace with a valid AMI ID for your region
-        KeyName: kratos        # Replace with your key name or parameterize if needed
+        KeyName: !Ref EC2KeyPair
       LaunchTemplateName: !Sub "${BaseName}-LaunchTemplate"
 
   AutoScalingGroup:
@@ -19,7 +83,7 @@ Resources:
       MaxSize: 5
       DesiredCapacity: !Ref DesiredCapacity
       VPCZoneIdentifier:
-        - <subnet-id>  # Replace with your subnet ID(s) (Public Subnet)
+        - !Ref PublicSubnet
       Tags:
         - Key: Name
           Value: !Sub "${BaseName}-Instance"
@@ -28,12 +92,19 @@ Resources:
 Parameters:
   BaseName:
     Type: String
-    Description: Base name for the resources.
-    Default: awesome
-
+    Description: Base name for the created artifacts
   DesiredCapacity:
     Type: Number
-    Description: Desired number of instances in the Auto Scaling Group.
     Default: 1
-    MinValue: 1
-    MaxValue: 10
+    Description: Desired capacity for the Auto Scaling Group
+
+Outputs:
+  KeyPairName:
+    Description: Name of the created key pair
+    Value: !Ref EC2KeyPair
+  PublicSubnetId:
+    Description: ID of the public subnet
+    Value: !Ref PublicSubnet
+  VPCId:
+    Description: ID of the VPC
+    Value: !Ref MyVPC

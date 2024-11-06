@@ -19,7 +19,7 @@ def deploy_stack(base_name, instance_count):
     stack_name = f"{base_name}"
 
     # Load the template and replace parameters with user input
-    template = CLOUDFORMATION_TEMPLATE.replace("awesome", base_name).replace("Default: 1", f"Default: {instance_count}")
+    template = CLOUDFORMATION_TEMPLATE.replace("Default: 1", f"Default: {instance_count}")
     try:
         # Create CloudFormation stack
         response = cloudformation.create_stack(
